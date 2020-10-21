@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	ecdsa "github.com/tjfoc/gmsm/sm2"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-amcl/amcl"
@@ -31,7 +30,7 @@ var ProofBytes = map[RevocationAlgorithm]int{
 
 // GenerateLongTermRevocationKey generates a long term signing key that will be used for revocation
 func GenerateLongTermRevocationKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	return ecdsa.GenerateKey()
 }
 
 // CreateCRI creates the Credential Revocation Information for a certain time period (epoch).
