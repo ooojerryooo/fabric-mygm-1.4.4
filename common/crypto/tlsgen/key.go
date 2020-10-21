@@ -8,13 +8,11 @@ package tlsgen
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	ecdsa "github.com/tjfoc/gmsm/sm2"
 	"math/big"
 	"net"
 	"time"
@@ -29,32 +27,32 @@ func (p *CertKeyPair) PubKeyString() string {
 }
 
 func newPrivKey() (*ecdsa.PrivateKey, []byte, error) {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := ecdsa.GenerateKey()
 	if err != nil {
 		return nil, nil, err
 	}
-	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	privBytes, err := ecdsa.MarshalSm2UnecryptedPrivateKey(privateKey)
 	if err != nil {
 		return nil, nil, err
 	}
 	return privateKey, privBytes, nil
 }
 
-func newCertTemplate() (x509.Certificate, error) {
+func newCertTemplate() (ecdsa.Certificate, error) {
 	sn, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
-		return x509.Certificate{}, err
+		return ecdsa.Certificate{}, err
 	}
-	return x509.Certificate{
+	return ecdsa.Certificate{
 		Subject:      pkix.Name{SerialNumber: sn.String()},
 		NotBefore:    time.Now().Add(time.Hour * (-24)),
 		NotAfter:     time.Now().Add(time.Hour * 24),
-		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:     ecdsa.KeyUsageKeyEncipherment | ecdsa.KeyUsageDigitalSignature,
 		SerialNumber: sn,
 	}, nil
 }
 
-func newCertKeyPair(isCA bool, isServer bool, host string, certSigner crypto.Signer, parent *x509.Certificate) (*CertKeyPair, error) {
+func newCertKeyPair(isCA bool, isServer bool, host string, certSigner crypto.Signer, parent *ecdsa.Certificate) (*CertKeyPair, error) {
 	privateKey, privBytes, err := newPrivKey()
 	if err != nil {
 		return nil, err
@@ -69,15 +67,15 @@ func newCertKeyPair(isCA bool, isServer bool, host string, certSigner crypto.Sig
 	if isCA {
 		template.NotAfter = tenYearsFromNow
 		template.IsCA = true
-		template.KeyUsage |= x509.KeyUsageCertSign | x509.KeyUsageCRLSign
-		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+		template.KeyUsage |= ecdsa.KeyUsageCertSign | ecdsa.KeyUsageCRLSign
+		template.ExtKeyUsage = []ecdsa.ExtKeyUsage{ecdsa.ExtKeyUsageAny}
 		template.BasicConstraintsValid = true
 	} else {
-		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+		template.ExtKeyUsage = []ecdsa.ExtKeyUsage{ecdsa.ExtKeyUsageClientAuth}
 	}
 	if isServer {
 		template.NotAfter = tenYearsFromNow
-		template.ExtKeyUsage = append(template.ExtKeyUsage, x509.ExtKeyUsageServerAuth)
+		template.ExtKeyUsage = append(template.ExtKeyUsage, ecdsa.ExtKeyUsageServerAuth)
 		if ip := net.ParseIP(host); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
@@ -89,14 +87,14 @@ func newCertKeyPair(isCA bool, isServer bool, host string, certSigner crypto.Sig
 		parent = &template
 		certSigner = privateKey
 	}
-	rawBytes, err := x509.CreateCertificate(rand.Reader, &template, parent, &privateKey.PublicKey, certSigner)
+	rawBytes, err := ecdsa.CreateCertificate(rand.Reader, &template, parent, &privateKey.PublicKey, certSigner)
 	if err != nil {
 		return nil, err
 	}
 	pubKey := encodePEM("CERTIFICATE", rawBytes)
 
 	block, _ := pem.Decode(pubKey)
-	cert, err := x509.ParseCertificate(block.Bytes)
+	cert, err := ecdsa.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, err
 	}

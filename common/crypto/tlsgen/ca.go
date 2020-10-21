@@ -8,7 +8,7 @@ package tlsgen
 
 import (
 	"crypto"
-	"crypto/x509"
+	x509 "github.com/tjfoc/gmsm/sm2"
 )
 
 // CertKeyPair denotes a TLS certificate and corresponding key,
