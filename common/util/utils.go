@@ -43,7 +43,7 @@ var availableIDgenAlgs = map[string]alg{
 
 // ComputeSHA256 returns SHA2-256 on data
 func ComputeSHA256(data []byte) (hash []byte) {
-	hash, err := factory.GetDefault().Hash(data, &bccsp.SHA256Opts{})
+	hash, err := factory.GetDefault().Hash(data, &bccsp.GMSM3Opts{})
 	if err != nil {
 		panic(fmt.Errorf("Failed computing SHA256 on [% x]", data))
 	}
@@ -55,6 +55,14 @@ func ComputeSHA3256(data []byte) (hash []byte) {
 	hash, err := factory.GetDefault().Hash(data, &bccsp.SHA3_256Opts{})
 	if err != nil {
 		panic(fmt.Errorf("Failed computing SHA3_256 on [% x]", data))
+	}
+	return
+}
+
+func ComputeGMSM3(data []byte) (hash []byte) {
+	hash, err := factory.GetDefault().Hash(data, &bccsp.GMSM3Opts{})
+	if err != nil {
+		panic(fmt.Errorf("Failed computing sm3 on [% x]", data))
 	}
 	return
 }
