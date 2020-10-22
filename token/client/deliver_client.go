@@ -7,8 +7,8 @@ package client
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
+	tls "github.com/tjfoc/gmtls"
 	"math"
 
 	"github.com/golang/protobuf/proto"
