@@ -8,9 +8,13 @@ package flogging
 
 import (
 	"fmt"
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"io"
 	"os"
+	"path"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/hyperledger/fabric/common/flogging/fabenc"
 	logging "github.com/op/go-logging"
@@ -98,6 +102,22 @@ func (s *Logging) Apply(c Config) error {
 
 	if c.Writer == nil {
 		c.Writer = os.Stderr
+	}
+
+	if enable, err := strconv.ParseBool(os.Getenv("FABRIC_LOG_PERSISTENCE")); err == nil && enable {
+		filePath := os.Getenv("FABRIC_LOG_PERSISTENCE_PATH")
+		if filePath == "" {
+			filePath = "/var/hyperledger/production/logs"
+		}
+		fileName := path.Join(filePath, "log")
+		logWriter, err := rotatelogs.New(fileName+".%Y%m%d.log",
+			rotatelogs.WithLinkName(fileName),         //软连接
+			rotatelogs.WithMaxAge(7*24*30*time.Hour),  //日志保留7天
+			rotatelogs.WithRotationTime(24*time.Hour)) //每天切割一次
+		if err != nil {
+			panic("build logWriter failed")
+		}
+		c.Writer = logWriter
 	}
 	s.SetWriter(c.Writer)
 
