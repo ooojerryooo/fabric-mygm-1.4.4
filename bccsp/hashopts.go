@@ -32,7 +32,7 @@ type SHA256Opts struct {
 
 // Algorithm returns the hash algorithm identifier (to be used).
 func (opts *SHA256Opts) Algorithm() string {
-	return GMSM3
+	return SHA256
 }
 
 // SHA384Opts contains options relating to SHA-384.
@@ -66,7 +66,7 @@ func (opts *SHA3_384Opts) Algorithm() string {
 func GetHashOpt(hashFunction string) (HashOpts, error) {
 	switch hashFunction {
 	case SHA256:
-		return &GMSM3Opts{}, nil
+		return &SHA256Opts{}, nil
 	case SHA384:
 		return &SHA384Opts{}, nil
 	case SHA3_256:
