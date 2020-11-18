@@ -8,6 +8,7 @@ package common
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,7 +32,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	tls "github.com/tjfoc/gmtls"
 )
 
 // UndefinedParamValue defines what undefined parameters in the command line will initialise to

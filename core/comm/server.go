@@ -7,16 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/hyperledger/fabric/bccsp/utils"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/tjfoc/gmsm/sm2"
-	tls "github.com/tjfoc/gmtls"
 	"google.golang.org/grpc"
 )
 
@@ -36,7 +38,7 @@ type GRPCServer struct {
 	lock *sync.Mutex
 	// Set of PEM-encoded X509 certificate authorities used to populate
 	// the tlsConfig.ClientCAs indexed by subject
-	clientRootCAs map[string]*sm2.Certificate
+	clientRootCAs map[string]*x509.Certificate
 	// TLS configuration used by the grpc server
 	tlsConfig *tls.Config
 }
@@ -59,6 +61,7 @@ func NewGRPCServer(address string, serverConfig ServerConfig) (*GRPCServer, erro
 // NewGRPCServerFromListener creates a new implementation of a GRPCServer given
 // an existing net.Listener instance using default keepalive
 func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig) (*GRPCServer, error) {
+	logger.Infof("【NewGRPCServerFromListener】从监听创建GRPC服务")
 	grpcServer := &GRPCServer{
 		address:  listener.Addr().String(),
 		listener: listener,
@@ -76,9 +79,20 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 	if secureConfig.UseTLS {
 		//both key and cert are required
 		if secureConfig.Key != nil && secureConfig.Certificate != nil {
+			block, _ := pem.Decode(secureConfig.Certificate)
+			tmpcert, err := utils.DERToSM2Certificate(block.Bytes)
+			if err != nil {
+				logger.Error("DERToSM2Certificate方法：", err)
+			} else {
+				logger.Debugf("签名算法类型：%s", tmpcert.SignatureAlgorithm.String())
+				logger.Debugf("CN：%s", tmpcert.Subject.CommonName)
+				logger.Debugf("发布者CN：%s", tmpcert.Issuer.CommonName)
+				logger.Debug(tmpcert.DNSNames)
+			}
 			//load server public and private keys
 			cert, err := tls.X509KeyPair(secureConfig.Certificate, secureConfig.Key)
 			if err != nil {
+				logger.Error("tls.X509KeyPair方法：", err)
 				return nil, err
 			}
 			grpcServer.serverCertificate.Store(cert)
@@ -112,8 +126,8 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 				grpcServer.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 				//if we have client root CAs, create a certPool
 				if len(secureConfig.ClientRootCAs) > 0 {
-					grpcServer.clientRootCAs = make(map[string]*sm2.Certificate)
-					grpcServer.tlsConfig.ClientCAs = sm2.NewCertPool()
+					grpcServer.clientRootCAs = make(map[string]*x509.Certificate)
+					grpcServer.tlsConfig.ClientCAs = x509.NewCertPool()
 					for _, clientRootCA := range secureConfig.ClientRootCAs {
 						err = grpcServer.appendClientRootCA(clientRootCA)
 						if err != nil {
@@ -265,7 +279,7 @@ func (gServer *GRPCServer) RemoveClientRootCAs(clientRoots [][]byte) error {
 	}
 
 	//create a new CertPool and populate with current clientRootCAs
-	certPool := sm2.NewCertPool()
+	certPool := x509.NewCertPool()
 	for _, clientRoot := range gServer.clientRootCAs {
 		certPool.AddCert(clientRoot)
 	}
@@ -308,7 +322,7 @@ func (gServer *GRPCServer) SetClientRootCAs(clientRoots [][]byte) error {
 	errMsg := "Failed to set client root certificate(s): %s"
 
 	//create a new map and CertPool
-	clientRootCAs := make(map[string]*sm2.Certificate)
+	clientRootCAs := make(map[string]*x509.Certificate)
 	for _, clientRoot := range clientRoots {
 		certs, subjects, err := pemToX509Certs(clientRoot)
 		if err != nil {
@@ -323,7 +337,7 @@ func (gServer *GRPCServer) SetClientRootCAs(clientRoots [][]byte) error {
 	}
 
 	//create a new CertPool and populate with the new clientRootCAs
-	certPool := sm2.NewCertPool()
+	certPool := x509.NewCertPool()
 	for _, clientRoot := range clientRootCAs {
 		certPool.AddCert(clientRoot)
 	}
